@@ -4,4 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-rand = "0.8.5"
+num-prime = "0.4.4"
+rand = { version = "0.8", features = ["std"] }
+rand_core = "0.6.4"
+subtle = "2.6.1"
+thiserror = "2.0.11"
