@@ -28,7 +28,6 @@ impl<const MODULUS: u64> FieldElement<MODULUS> {
         self.value
     }
 
-    /// Securely generate a random field element.
     pub fn random() -> Self {
         let mut rng = OsRng;
         let value = rng.next_u64() % MODULUS;
@@ -51,10 +50,14 @@ impl<const MODULUS: u64> FieldElement<MODULUS> {
         FieldElement { value: result }
     }
 
-    /// Modular inverse using Fermat's Little Theorem: `a^(p-2) % p`.
+    /// `a^(p-2) % p`.
     pub fn inverse(&self) -> Self {
         assert!(MODULUS > 2, "Modulus must be > 2 for inverse calculation");
         self.pow(MODULUS - 2)
+    }
+
+    pub fn to_bytes(&self) -> [u8; 8] {
+        self.value.to_be_bytes() //big endian
     }
 }
 
