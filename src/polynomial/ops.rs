@@ -134,15 +134,6 @@ impl<const MODULUS: u64> Polynomial<MODULUS> {
         self.coefficients = product;
         self.update_degree();
     }
-
-    // -------------- Division (Optional Schoolbook) ---------------
-    //
-    // If you need "in-place" division or remainder, you can implement
-    // a function that modifies `self` = quotient, and returns a new remainder,
-    // or vice versa. For now, we'll just do a standard function that returns
-    // (quotient, remainder).
-    //
-
     /// Returns (quotient, remainder) using naive polynomial long division.
     pub fn div_rem(&self, rhs: &Self) -> (Self, Self) {
         if rhs.is_zero() {
@@ -193,7 +184,22 @@ impl<const MODULUS: u64> Polynomial<MODULUS> {
         let quot_poly = Polynomial::new(quotient);
         let rem_poly = Polynomial::new(rem);
         (quot_poly, rem_poly)
-    }
+        }
+
+        /// Scalar multiplication in-place
+        pub fn scalar_mul(&mut self, scalar: FieldElement<MODULUS>) {
+            for coef in self.coefficients.iter_mut() {
+                *coef *= scalar;
+            }
+        }
+
+        /// Scalar division in-place
+        pub fn scalar_div(&mut self, scalar: FieldElement<MODULUS>) {
+            let scalar_inv = scalar.inverse().expect("Division by zero scalar");
+            for coef in self.coefficients.iter_mut() {
+                *coef *= scalar_inv;
+            }
+        }
 }
 
 ///trait
@@ -222,6 +228,22 @@ impl<const M: u64> Mul for Polynomial<M> {
     }
 }
 
+
+impl<const M: u64> Mul<FieldElement<M>> for Polynomial<M> {
+    type Output = Self;
+    fn mul(mut self, scalar: FieldElement<M>) -> Self::Output {
+        self.mul_assign(scalar);
+        self
+    }
+}
+
+ 
+impl<const M: u64> MulAssign<FieldElement<M>> for Polynomial<M> {
+    fn mul_assign(&mut self, scalar: FieldElement<M>) {
+        self.scalar_mul(scalar);
+    }
+}
+
 impl<const M: u64> Neg for Polynomial<M> {
     type Output = Self;
     fn neg(mut self) -> Self::Output {
@@ -243,6 +265,22 @@ impl<const M: u64> Div for Polynomial<M> {
     }
 }
 
+
+impl<const M: u64> Div<FieldElement<M>> for Polynomial<M> {
+    type Output = Self;
+    fn div(mut self, scalar: FieldElement<M>) -> Self::Output {
+        self.div_assign(scalar);
+        self
+    }
+}
+
+impl<const M: u64> DivAssign<FieldElement<M>> for Polynomial<M> {
+    fn div_assign(&mut self, scalar: FieldElement<M>) {
+        self.scalar_div(scalar);
+    }
+}
+
+
 impl<const M: u64> PartialEq for Polynomial<M> {
     fn eq(&self, other: &Self) -> bool {
         if self.degree != other.degree {
@@ -259,4 +297,14 @@ impl<const M: u64> PartialEq for Polynomial<M> {
         true
     }
 }
+
+// Eq deries from PartialEq
 impl<const M: u64> Eq for Polynomial<M> {}
+
+impl<const M: u64> Mul<Polynomial<M>> for FieldElement<M> {
+    type Output = Polynomial<M>;
+    fn mul(self, mut poly: Polynomial<M>) -> Polynomial<M> {
+        poly.mul_assign(self);
+        poly
+    }
+}

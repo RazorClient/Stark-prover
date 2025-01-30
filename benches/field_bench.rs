@@ -4,7 +4,7 @@ use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use stark_101::fields::FieldElement; // Update this if your crate name is different
 
 fn bench_field_operations(c: &mut Criterion) {
-    const MODULUS: u64 = 7;
+    const MODULUS: u64 = 2147483647;
 
     let a_el = FieldElement::<MODULUS>::new(3);
     let b_el = FieldElement::<MODULUS>::new(5);
