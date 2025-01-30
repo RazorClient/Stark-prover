@@ -98,7 +98,7 @@ impl<const MODULUS: u64> Polynomial<MODULUS> {
     /// Subtract `rhs` polynomial from `self`, in-place.
     pub fn sub_assign(&mut self, rhs: &Self) {
         if rhs.is_zero() {
-            return; // nothing to subtract
+            return; 
         }
         let max_len = std::cmp::max(self.coefficients.len(), rhs.coefficients.len());
         self.coefficients.resize(max_len, FieldElement::zero());
@@ -111,7 +111,7 @@ impl<const MODULUS: u64> Polynomial<MODULUS> {
 
     pub fn mul_assign(&mut self, rhs: &Self) {
         if self.is_zero() {
-            return; // already zero
+            return; 
         }
         if rhs.is_zero() {
             *self = Self::zero();
@@ -144,13 +144,12 @@ impl<const MODULUS: u64> Polynomial<MODULUS> {
     //
 
     /// Returns (quotient, remainder) using naive polynomial long division.
-    /// If `rhs` is zero polynomial, panics.
     pub fn div_rem(&self, rhs: &Self) -> (Self, Self) {
         if rhs.is_zero() {
             panic!("Division by zero polynomial");
         }
         if self.is_zero() || self.degree < rhs.degree {
-            return (Self::zero(), self.clone()); // remainder = self, quotient=0
+            return (Self::zero(), self.clone()); 
         }
 
         let mut rem = self.coefficients.clone();
@@ -160,12 +159,11 @@ impl<const MODULUS: u64> Polynomial<MODULUS> {
         let q_len = (self.degree - rhs.degree + 1) as usize;
         let mut quotient = vec![FieldElement::zero(); q_len];
 
-        let den_lead = rhs.coefficients[rhs.degree as usize]; // leading coeff
+        let den_lead = rhs.coefficients[rhs.degree as usize]; 
         let den_deg = rhs.degree;
 
         while rem_deg >= den_deg && rem_deg != -1 {
             let lead_rem = rem[rem_deg as usize];
-            // ratio
             let ratio = lead_rem / den_lead;
 
             // shift for subtracting from remainder
@@ -198,7 +196,7 @@ impl<const MODULUS: u64> Polynomial<MODULUS> {
     }
 }
 
-
+///trait
 
 impl<const M: u64> Add for Polynomial<M> {
     type Output = Self;
@@ -238,7 +236,9 @@ impl<const M: u64> Div for Polynomial<M> {
     type Output = Self;
     fn div(self, rhs: Self) -> Self::Output {
         let (q, r) = self.div_rem(&rhs);
-        assert!(r.is_zero(), "Polynomial division remainder is not zero");
+        if !r.is_zero() {
+            return Err("Polynomial division remainder is not zero".into());
+        }
         q
     }
 }
