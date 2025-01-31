@@ -1,13 +1,14 @@
-use crate::field_element::FieldElement;
+use crate::fields::FieldElement;
 use crate::polynomial::Polynomial;
 // add ntt and pararell version latter
+
+
 
 pub fn gen_polynomial_from_roots<const M: u64>(roots: &[FieldElement<M>]) -> Polynomial<M> {
     if roots.is_empty() {
         return Polynomial::new(vec![]); 
     }
 
-    // Start with the constant polynomial "1"
     let mut p = Polynomial::new(vec![FieldElement::one()]);
 
     // Multiply p by (x - root) for each root
@@ -26,10 +27,7 @@ pub fn gen_polynomial_from_roots<const M: u64>(roots: &[FieldElement<M>]) -> Pol
 
     p
 }
-
 /// Return the Lagrange basis polynomials [L0, L1, ..., L_{n-1}],
-/// where L_i(x) = ∏_{j != i} (x - x_j) / (x_i - x_j).
-///
 /// 
 ///    1) Let Z(x) = ∏ (x - x_j).
 ///    2) For each i, L_i(x) = [Z(x) / (x - x_i)] / denom_i,
@@ -80,13 +78,13 @@ pub fn interpolate_lagrange_polynomials<const M: u64>(
         return Polynomial::zero();
     }
     // Compute the basis polynomials L_i(x).
-    let L = gen_lagrange_polynomials(xs);
+    let l = gen_lagrange_polynomials(xs);
 
     // Sum up: f(x) = Σ (ys[i] * L[i](x)).
     let mut acc = Polynomial::zero();
     for i in 0..n {
         // clone L[i], multiply by ys[i].
-        let mut term = L[i].clone();
+        let mut term = l[i].clone();
         term.scalar_mul(ys[i]);
         // add to accumulator
         acc.add_assign(&term);

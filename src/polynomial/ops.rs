@@ -1,8 +1,8 @@
-use std::ops::{Add, AddAssign, Sub, SubAssign, Mul, MulAssign, Div,DivAssign,Neg,Rem,RemAssign};
+use std::ops::{Add, Sub, Mul, MulAssign, Div,DivAssign,Neg,Rem,RemAssign};
 use std::ops::{Fn, FnMut, FnOnce};
 
 
-use crate::FieldElement;
+use crate::fields::FieldElement;
 
 
 /// - `coefficients[i]` = coefficient for x^i term.
@@ -136,6 +136,7 @@ impl<const MODULUS: u64> Polynomial<MODULUS> {
         self.coefficients = product;
         self.update_degree();
     }
+    
     /// Returns (quotient, remainder) using naive polynomial long division.
     pub fn div_rem(&self, rhs: &Self) -> (Self, Self) {
         if rhs.is_zero() {
@@ -157,7 +158,8 @@ impl<const MODULUS: u64> Polynomial<MODULUS> {
 
         while rem_deg >= den_deg && rem_deg != -1 {
             let lead_rem = rem[rem_deg as usize];
-            let ratio = lead_rem / den_lead;
+            let ratio = lead_rem * den_lead.inverse();
+
 
             // shift for subtracting from remainder
             let shift = (rem_deg - den_deg) as usize;
@@ -186,7 +188,7 @@ impl<const MODULUS: u64> Polynomial<MODULUS> {
         let quot_poly = Polynomial::new(quotient);
         let rem_poly = Polynomial::new(rem);
         (quot_poly, rem_poly)
-        }
+    }
 
     /// Scalar multiplication in-place
     pub fn scalar_mul(&mut self, scalar: FieldElement<MODULUS>) {
@@ -197,13 +199,17 @@ impl<const MODULUS: u64> Polynomial<MODULUS> {
 
     /// Scalar division in-place
     pub fn scalar_div(&mut self, scalar: FieldElement<MODULUS>) {
-            let scalar_inv = scalar.inverse().expect("Division by zero scalar");
+            let scalar_inv = scalar.inverse();
             for coef in self.coefficients.iter_mut() {
                 *coef *= scalar_inv;
             }
         }
 
-    impl<const MODULUS: u64> Polynomial<MODULUS> {
+
+}
+
+///trait
+impl<const MODULUS: u64> Polynomial<MODULUS> {
     /// Compose `self` with `other`: return `self(other)`.
     /// i.e. p(q) = sum_{i=0}^degree( coeff[i] * [q(x)]^i ).
     pub fn compose(&self, other: &Polynomial<MODULUS>) -> Polynomial<MODULUS> {
@@ -211,7 +217,7 @@ impl<const MODULUS: u64> Polynomial<MODULUS> {
             return Polynomial::zero();
         }
 
-        // We'll do Horner’s approach from highest power to lowest:
+        // We'll do Horner's approach from highest power to lowest:
         //   p(x) = a_n x^n + ... + a_1 x + a_0
         //   p(q) = (((0 * q) + a_n)*q + a_{n-1})*q + ... + a_0
         let mut result = Polynomial::zero();
@@ -231,10 +237,6 @@ impl<const MODULUS: u64> Polynomial<MODULUS> {
         result
     }
 }
-
-}
-
-///trait
 
 impl<const M: u64> Add for Polynomial<M> {
     type Output = Self;
@@ -264,12 +266,13 @@ impl<const M: u64> Mul for Polynomial<M> {
 impl<const M: u64> Mul<FieldElement<M>> for Polynomial<M> {
     type Output = Self;
     fn mul(mut self, scalar: FieldElement<M>) -> Self::Output {
-        self.mul_assign(scalar);
+        for coef in self.coefficients.iter_mut() {
+            *coef *= scalar;
+        }
         self
     }
 }
 
- 
 impl<const M: u64> MulAssign<FieldElement<M>> for Polynomial<M> {
     fn mul_assign(&mut self, scalar: FieldElement<M>) {
         self.scalar_mul(scalar);
@@ -291,7 +294,7 @@ impl<const M: u64> Div for Polynomial<M> {
     fn div(self, rhs: Self) -> Self::Output {
         let (q, r) = self.div_rem(&rhs);
         if !r.is_zero() {
-            return Err("Polynomial division remainder is not zero".into());
+            panic!("Polynomial division remainder is not zero");
         }
         q
     }
@@ -335,11 +338,15 @@ impl<const M: u64> Eq for Polynomial<M> {}
 
 impl<const M: u64> Mul<Polynomial<M>> for FieldElement<M> {
     type Output = Polynomial<M>;
+    
     fn mul(self, mut poly: Polynomial<M>) -> Polynomial<M> {
-        poly.mul_assign(self);
+        for coef in poly.coefficients.iter_mut() {
+            *coef *= self; // ✅ Multiply each coefficient by the scalar
+        }
         poly
     }
 }
+
 
 impl<const MODULUS: u64> Rem for Polynomial<MODULUS> {
     type Output = Self;
@@ -359,34 +366,7 @@ impl<const MODULUS: u64> RemAssign for Polynomial<MODULUS> {
     }
 }
 
-
-impl<const MODULUS: u64> Polynomial<MODULUS> {
-    /// Compose `self` with `other`: return `self(other)`.
-    /// i.e. p(q) = sum_{i=0}^degree( coeff[i] * [q(x)]^i ).
-    pub fn compose(&self, other: &Polynomial<MODULUS>) -> Polynomial<MODULUS> {
-        if self.is_zero() {
-            return Polynomial::zero();
-        }
-        //   p(x) = a_n x^n + ... + a_1 x + a_0
-        //   p(q) = (((0 * q) + a_n)*q + a_{n-1})*q + ... + a_0
-        let mut result = Polynomial::zero();
-        for &coeff in self.coefficients.iter().rev() {
-
-            if !result.is_zero() {
-                let mut temp = result.clone();
-                temp.mul_assign(other);
-                // add constant 'coeff'
-                temp.add_assign(&Polynomial::new(vec![coeff]));
-                result = temp;
-            } else {
-                result = Polynomial::new(vec![coeff]);
-            }
-        }
-        result
-    }
-}
-
-
+// some nightly rust problems
 impl<const M: u64> FnOnce<(Polynomial<M>,)> for Polynomial<M> {
     type Output = Polynomial<M>;
 
@@ -437,4 +417,425 @@ impl<const M: u64> FromIterator<FieldElement<M>> for Polynomial<M> {
         let coeffs: Vec<FieldElement<M>> = iter.into_iter().collect();
         Self::new(coeffs)
     }
+}
+
+
+
+
+// //tests
+#[cfg(test)]
+mod test_polynomials {
+    use super::*;
+    use rand::Rng;
+
+
+
+
+    fn generate_random_polynomial(degree: usize) -> Polynomial<7> {
+        let mut rng = rand::thread_rng();
+        let mut coeffs: Vec<FieldElement<7>> =
+            (0..degree).map(|_| FieldElement::random()).collect();
+        let mut leading = FieldElement::zero();
+        while leading == FieldElement::zero() {
+            leading = FieldElement::random();
+        }
+        coeffs.push(leading);
+        Polynomial::new(coeffs)
+    }
+
+ 
+    #[test]
+    fn test_zero_polynomial() {
+        let poly: Polynomial<7> = Polynomial::zero();
+        assert_eq!(poly.degree, -1);
+        assert!(poly.is_zero());
+    }
+
+    #[test]
+    fn test_evaluate_zero_polynomial() {
+        let field = FieldElement::<7>::zero();
+        let poly = Polynomial::zero();
+        assert_eq!(poly.evaluate(field), FieldElement::zero());
+    }
+
+    #[test]
+    fn test_evaluate_constant_polynomial() {
+        let field = FieldElement::<7>::zero();
+        let coeffs = vec![FieldElement::new(5)];
+        let poly = Polynomial::new(coeffs);
+        assert_eq!(poly.evaluate(field), FieldElement::new(5));
+    }
+
+    #[test]
+    fn test_poly_addition() {
+        let coeffs1 = vec![FieldElement::<7>::new(2), FieldElement::new(3)];
+        let coeffs2 = vec![FieldElement::<7>::new(4), FieldElement::new(1)];
+        let poly1 = Polynomial::new(coeffs1);
+        let poly2 = Polynomial::new(coeffs2);
+        let result = poly1 + poly2;
+        assert_eq!(result.coefficients[0], FieldElement::new(6));
+        assert_eq!(result.coefficients[1], FieldElement::new(4));
+    }
+
+    #[test]
+    fn test_poly_subtraction() {
+        let coeffs1 = vec![FieldElement::<7>::new(6), FieldElement::<7>::new(5)];
+        let coeffs2 = vec![FieldElement::<7>::new(4), FieldElement::<7>::new(3)];
+        let poly1 = Polynomial::new(coeffs1);
+        let poly2 = Polynomial::new(coeffs2);
+        let result = poly1 - poly2;
+    
+        // (6 + 5x) - (4 + 3x) = (6 - 4) + (5 - 3)x = 2 + 2x mod 7
+        assert_eq!(result.coefficients[0], FieldElement::<7>::new(2)); // (6 - 4) mod 7 = 2
+        assert_eq!(result.coefficients[1], FieldElement::<7>::new(2)); // (5 - 3) mod 7 = 2
+    }
+    
+    #[test]
+    fn test_poly_multiplication() {
+        let coeffs1 = vec![FieldElement::<7>::new(1), FieldElement::<7>::new(2)];
+        let coeffs2 = vec![FieldElement::<7>::new(3), FieldElement::<7>::new(4)];
+        let poly1 = Polynomial::new(coeffs1);
+        let poly2 = Polynomial::new(coeffs2);
+        let result = poly1 * poly2;
+    
+        // (1 + 2x) * (3 + 4x) mod 7:
+        // 1*3 + (1*4 + 2*3)x + (2*4)x^2 = 3 + 10x + 8x^2
+        // mod 7 => 3 + 3x + x^2
+        assert_eq!(result.coefficients.len(), 3);
+        assert_eq!(result.coefficients[0], FieldElement::<7>::new(3)); // 3 mod 7 = 3
+        assert_eq!(result.coefficients[1], FieldElement::<7>::new(3)); // 10 mod 7 = 3
+        assert_eq!(result.coefficients[2], FieldElement::<7>::new(1)); // 8 mod 7 = 1
+    }
+    
+
+    #[test]
+    fn test_poly_scalar_multiplication() {
+        let coeffs = vec![FieldElement::<7>::new(2), FieldElement::<7>::new(3)];
+        let poly = Polynomial::new(coeffs);
+        let scalar = FieldElement::<7>::new(4);
+        let result = poly * scalar;
+    
+        // (2 + 3x) * 4 mod 7:
+        // (2 * 4) + (3 * 4)x = 8 + 12x
+        // mod 7 => 1 + 5x
+        assert_eq!(result.coefficients[0], FieldElement::<7>::new(1)); // 8 mod 7 = 1
+        assert_eq!(result.coefficients[1], FieldElement::<7>::new(5)); // 12 mod 7 = 5
+    }
+    
+    #[test]
+    fn test_poly_division() {
+        let coeffs1 = vec![
+            FieldElement::<7>::new(1), // Constant term
+            FieldElement::<7>::new(3), // x term
+            FieldElement::<7>::new(2), // x^2 term
+        ];
+        let coeffs2 = vec![
+            FieldElement::<7>::new(1), // Constant term
+            FieldElement::<7>::new(1), // x term
+        ];
+        let poly1 = Polynomial::new(coeffs1);
+        let poly2 = Polynomial::new(coeffs2);
+        let (q, r) = poly1.div_rem(&poly2);
+    
+        // (1 + 3x + 2x^2) / (1 + x)
+        // Expected quotient: 2x + 1 (mod 7)
+        // Expected remainder: 0
+    
+        assert_eq!(q.coefficients.len(), 2, "Quotient should be of degree 1.");
+        assert_eq!(q.coefficients[0], FieldElement::<7>::new(1), "Constant term of quotient should be 1.");
+        assert_eq!(q.coefficients[1], FieldElement::<7>::new(2), "x term of quotient should be 2.");
+        assert!(r.is_zero(), "Remainder should be zero.");
+    }
+    
+    
+    #[test]
+    fn test_poly_composition() {
+        let coeffs1 = vec![FieldElement::<7>::new(1), FieldElement::<7>::new(1)]; // 1 + x
+        let coeffs2 = vec![FieldElement::<7>::new(2), FieldElement::<7>::new(3)]; // 2 + 3x
+        let poly1 = Polynomial::new(coeffs1);
+        let poly2 = Polynomial::new(coeffs2);
+        let result = poly1.compose(&poly2);
+    
+        // Expected result: 3 + 3x (mod 7)
+        assert_eq!(result.coefficients.len(), 2, "Composition should yield a polynomial of degree 1.");
+        assert_eq!(result.coefficients[0], FieldElement::<7>::new(3), "Constant term should be 3.");
+        assert_eq!(result.coefficients[1], FieldElement::<7>::new(3), "x term should be 3.");
+    }
+    
+
+    #[test]
+    fn test_poly_random_generation() {
+        let poly = generate_random_polynomial(5);
+        assert_eq!(poly.degree, 5);
+    }
+
+// coverage test
+//     #[test]
+//     fn test_create_with_empty_coeffs() {
+//         // Creating polynomial with empty vec means zero polynomial.
+//         let poly: Polynomial<7> = Polynomial::new(vec![]);
+//         assert_eq!(poly.degree, -1);
+//         assert!(poly.is_zero());
+//     }
+
+//     #[test]
+//     fn test_create_with_trailing_zeros() {
+//         let coeffs = vec![FieldElement::new(1), FieldElement::new(2), FieldElement::zero(), FieldElement::zero()];
+//         let poly = Polynomial::new(coeffs);
+//         assert_eq!(poly.degree, 1);
+//         assert_eq!(poly.coefficients.len(), 2);
+//         assert_eq!(poly.coefficients[0], FieldElement::new(1));
+//         assert_eq!(poly.coefficients[1], FieldElement::new(2));
+//     }
+
+//     #[test]
+//     fn test_is_zero() {
+//         let zero_poly = Polynomial::zero();
+//         assert!(zero_poly.is_zero());
+//         let non_zero_poly = Polynomial::new(vec![FieldElement::new(0), FieldElement::new(1)]);
+//         assert!(!non_zero_poly.is_zero());
+//     }
+
+//     #[test]
+//     fn test_leading_coefficient() {
+//         let poly = Polynomial::new(vec![FieldElement::new(2), FieldElement::new(5)]);
+//         assert_eq!(poly.leading_coefficient().unwrap(), FieldElement::new(5));
+//         let zero_poly = Polynomial::zero();
+//         assert_eq!(zero_poly.leading_coefficient(), None);
+//     }
+
+//     #[test]
+//     fn test_add_zero_polynomial() {
+//         let p = Polynomial::new(vec![FieldElement::new(3), FieldElement::new(4)]);
+//         let zero_p = Polynomial::zero();
+//         let result = p.clone() + zero_p;
+//         assert_eq!(result, p);
+//     }
+
+//     #[test]
+//     fn test_sub_zero_polynomial() {
+//         let p = Polynomial::new(vec![FieldElement::new(3), FieldElement::new(4)]);
+//         let zero_p = Polynomial::zero();
+//         let result = p.clone() - zero_p;
+//         assert_eq!(result, p);
+//     }
+
+//     #[test]
+//     fn test_add_assign() {
+//         let mut p = Polynomial::new(vec![FieldElement::new(1), FieldElement::new(2)]);
+//         let q = Polynomial::new(vec![FieldElement::new(2), FieldElement::new(3)]);
+//         p.add_assign(&q);
+//         assert_eq!(p.coefficients[0], FieldElement::new(3));
+//         assert_eq!(p.coefficients[1], FieldElement::new(5));
+//     }
+
+//     #[test]
+//     fn test_sub_assign() {
+//         let mut p = Polynomial::new(vec![FieldElement::new(3), FieldElement::new(5)]);
+//         let q = Polynomial::new(vec![FieldElement::new(2), FieldElement::new(3)]);
+//         p.sub_assign(&q);
+//         assert_eq!(p.coefficients[0], FieldElement::new(1));
+//         assert_eq!(p.coefficients[1], FieldElement::new(2));
+//     }
+
+//     #[test]
+//     fn test_mul_by_zero_polynomial() {
+//         let p = Polynomial::new(vec![FieldElement::new(1), FieldElement::new(2)]);
+//         let zero_p = Polynomial::zero();
+//         let result = p * zero_p;
+//         assert!(result.is_zero());
+//     }
+
+//     #[test]
+//     fn test_mul_assign_polynomial() {
+//         let mut p = Polynomial::new(vec![FieldElement::new(1), FieldElement::new(2)]);
+//         let q = Polynomial::new(vec![FieldElement::new(2), FieldElement::new(1)]);
+//         // (1 + 2x)*(2 + x) = 2 + 5x + 2x^2.
+//         p.mul_assign(&q);
+//         assert_eq!(p.coefficients.len(), 3);
+//         assert_eq!(p.coefficients[0], FieldElement::new(2));
+//         assert_eq!(p.coefficients[1], FieldElement::new(5));
+//         assert_eq!(p.coefficients[2], FieldElement::new(2));
+//     }
+
+//     #[test]
+//     fn test_poly_scalar_division() {
+//         let coeffs = vec![FieldElement::new(2), FieldElement::new(4)];
+//         let mut poly = Polynomial::new(coeffs);
+//         let scalar = FieldElement::new(2);
+//         poly.scalar_div(scalar);
+//         // (2 + 4x)/2 => (1 + 2x) in mod 7.
+//         assert_eq!(poly.coefficients[0], FieldElement::new(1));
+//         assert_eq!(poly.coefficients[1], FieldElement::new(2));
+//     }
+
+//     #[test]
+//     #[should_panic]
+//     fn test_poly_scalar_div_by_zero() {
+//         let coeffs = vec![FieldElement::new(2), FieldElement::new(4)];
+//         let mut poly = Polynomial::new(coeffs);
+//         let zero = FieldElement::zero();
+//         poly.scalar_div(zero);
+//     }
+
+//     #[test]
+//     fn test_poly_div_rem_no_remainder() {
+//         // (1 + 3x + 2x^2) / (1 + x) => (1 + 2x)
+//         let coeffs1 = vec![FieldElement::new(1), FieldElement::new(3), FieldElement::new(2)];
+//         let coeffs2 = vec![FieldElement::new(1), FieldElement::new(1)];
+//         let poly1 = Polynomial::new(coeffs1);
+//         let poly2 = Polynomial::new(coeffs2);
+//         let (q, r) = poly1.div_rem(&poly2);
+//         assert_eq!(q.coefficients[0], FieldElement::new(1));
+//         assert_eq!(q.coefficients[1], FieldElement::new(2));
+//         assert!(r.is_zero());
+//     }
+
+//     #[test]
+//     fn test_poly_div_rem_nontrivial() {
+//         let coeffs1 = vec![FieldElement::new(2), FieldElement::new(5), FieldElement::new(3)];
+//         let coeffs2 = vec![FieldElement::new(1), FieldElement::new(1)];
+//         let poly1 = Polynomial::new(coeffs1);
+//         let poly2 = Polynomial::new(coeffs2);
+//         let (q, r) = poly1.div_rem(&poly2);
+//         let reconstructed = (&poly2 * q.clone()) + r.clone();
+//         assert_eq!(reconstructed, poly1);
+//     }
+
+//     #[test]
+//     #[should_panic]
+//     fn test_poly_div_by_zero_polynomial() {
+//         let p = Polynomial::new(vec![FieldElement::new(1), FieldElement::new(2)]);
+//         let zero_p = Polynomial::zero();
+//         let _ = p.div_rem(&zero_p);
+//     }
+
+//     #[test]
+//     fn test_poly_div_assign_scalar() {
+//         let mut p = Polynomial::new(vec![FieldElement::new(2), FieldElement::new(4)]);
+//         p /= FieldElement::new(2);
+//         assert_eq!(p.coefficients[0], FieldElement::new(1));
+//         assert_eq!(p.coefficients[1], FieldElement::new(2));
+//     }
+
+//     #[test]
+//     fn test_poly_rem_operator() {
+//         let coeffs1 = vec![FieldElement::new(2), FieldElement::new(5), FieldElement::new(3)];
+//         let coeffs2 = vec![FieldElement::new(1), FieldElement::new(1)];
+//         let poly1 = Polynomial::new(coeffs1);
+//         let poly2 = Polynomial::new(coeffs2);
+//         let remainder = poly1.clone() % poly2.clone();
+//         let (_, r) = poly1.div_rem(&poly2);
+//         assert_eq!(remainder, r);
+//     }
+
+//     #[test]
+//     fn test_poly_rem_assign() {
+//         let coeffs1 = vec![FieldElement::new(1), FieldElement::new(1), FieldElement::new(1)];
+//         let coeffs2 = vec![FieldElement::new(1), FieldElement::new(1)];
+//         let mut p = Polynomial::new(coeffs1);
+//         let q = Polynomial::new(coeffs2);
+//         p %= q.clone();
+//         let (_, r) = Polynomial::new(vec![
+//             FieldElement::new(1),
+//             FieldElement::new(1),
+//             FieldElement::new(1)
+//         ]).div_rem(&q);
+//         assert_eq!(p, r);
+//     }
+
+//     #[test]
+//     fn test_neg() {
+//         let p = Polynomial::new(vec![FieldElement::new(1), FieldElement::new(2)]);
+//         let neg_p = -p.clone();
+//         let sum = p + neg_p;
+//         assert!(sum.is_zero());
+//     }
+
+//     #[test]
+//     fn test_partial_eq_diff_length() {
+//         let p = Polynomial::new(vec![FieldElement::new(1), FieldElement::new(2)]);
+//         let q = Polynomial::new(vec![FieldElement::new(1), FieldElement::new(2), FieldElement::new(3)]);
+//         assert_ne!(p, q);
+//     }
+
+//     #[test]
+//     fn test_partial_eq_diff_coeff() {
+//         let p = Polynomial::new(vec![FieldElement::new(1), FieldElement::new(2)]);
+//         let q = Polynomial::new(vec![FieldElement::new(1), FieldElement::new(3)]);
+//         assert_ne!(p, q);
+//     }
+
+//     #[test]
+//     fn test_compose_with_zero() {
+//         let p = Polynomial::new(vec![FieldElement::new(1), FieldElement::new(1)]);
+//         let zero_poly = Polynomial::zero();
+//         let result = p.compose(&zero_poly);
+//         assert_eq!(result.degree, 0);
+//         assert_eq!(result.coefficients[0], FieldElement::new(1));
+//     }
+
+//     #[test]
+//     fn test_compose_with_constant() {
+//         // p(x)= x + 2, c=5 => p(5)=7=>0 mod7 => constant poly 0.
+//         let p = Polynomial::new(vec![FieldElement::new(2), FieldElement::new(1)]);
+//         let constant_poly = Polynomial::new(vec![FieldElement::new(5)]);
+//         let result = p.compose(&constant_poly);
+//         assert_eq!(result.degree, 0);
+//         assert_eq!(result.coefficients[0], FieldElement::zero());
+//     }
+
+//     #[test]
+//     fn test_compose_additional() {
+//         // p1(x)=1 + x, p2(x)=2 + 3x => p1(p2(x))=3+3x
+//         let coeffs1 = vec![FieldElement::new(1), FieldElement::new(1)];
+//         let coeffs2 = vec![FieldElement::new(2), FieldElement::new(3)];
+//         let poly1 = Polynomial::new(coeffs1);
+//         let poly2 = Polynomial::new(coeffs2);
+//         let result = poly1.compose(&poly2);
+//         assert_eq!(result.degree, 1);
+//         assert_eq!(result.coefficients[0], FieldElement::new(3));
+//         assert_eq!(result.coefficients[1], FieldElement::new(3));
+//     }
+
+//     // #[test]
+//     // fn test_evaluate_random_points() {
+//     //     let mut rng = rand::thread_rng();
+//     //     for _ in 0..5 {
+//     //         let degree = rng.gen_range(0..5);
+//     //         let poly = generate_random_polynomial(degree);
+//     //         let x_val = FieldElement::<7>::random_element(&[]);
+//     //         let _ = poly.evaluate(x_val);
+//     //     }
+//     // }
+
+//     #[test]
+//     fn test_div_rem_random_polys() {
+//         let mut rng = rand::thread_rng();
+//         for _ in 0..5 {
+//             let deg_a = rng.gen_range(0..5);
+//             let deg_b = rng.gen_range(0..5);
+//             let poly_a = generate_random_polynomial(deg_a);
+//             let poly_b = generate_random_polynomial(deg_b);
+//             if poly_b.is_zero() {
+//                 continue;
+//             }
+//             let (q, r) = poly_a.div_rem(&poly_b);
+//             if !r.is_zero() {
+//                 assert!(r.degree < poly_b.degree);
+//             }
+//             let rebuilt = (&poly_b * q.clone()) + r.clone();
+//             assert_eq!(rebuilt, poly_a);
+//         }
+//     }
+
+//     #[test]
+//     fn test_from_iter() {
+//         let elems = vec![FieldElement::new(1), FieldElement::new(2), FieldElement::new(0)];
+//         let poly: Polynomial<7> = elems.into_iter().collect();
+//         assert_eq!(poly.degree, 1);
+//         assert_eq!(poly.coefficients.len(), 2);
+//         assert_eq!(poly.coefficients[0], FieldElement::new(1));
+//         assert_eq!(poly.coefficients[1], FieldElement::new(2));
+//     }
 }
