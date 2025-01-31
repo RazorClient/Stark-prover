@@ -6,3 +6,6 @@ pub mod fields;
 pub mod merkle;
 pub mod polynomial;
 
+#[macro_use]
+pub mod utils;
+

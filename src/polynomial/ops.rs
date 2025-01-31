@@ -537,6 +537,14 @@ impl<const M: u64> FromIterator<FieldElement<M>> for Polynomial<M> {
     }
 }
 
+pub fn generate_random_polynomial<const M: u64>(degree: usize) -> Polynomial<M> {
+    let mut coeffs = Vec::with_capacity(degree + 1);
+    for _ in 0..=degree {
+        coeffs.push(FieldElement::<M>::random());
+    }
+    Polynomial::new(coeffs)
+}
+
 // //tests
 #[cfg(test)]
 mod test_polynomials {

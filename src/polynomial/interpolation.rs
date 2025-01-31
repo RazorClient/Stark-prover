@@ -1,28 +1,22 @@
 use crate::fields::FieldElement;
 use crate::polynomial::Polynomial;
+use crate::{poly,fe,field};
 // add ntt and pararell version latter
 
 
 
 pub fn gen_polynomial_from_roots<const M: u64>(roots: &[FieldElement<M>]) -> Polynomial<M> {
     if roots.is_empty() {
-        return Polynomial::new(vec![]); 
+        return Polynomial::zero(); 
     }
 
-    let mut p = Polynomial::new(vec![FieldElement::one()]);
+    // Start with p(x) = 1
+    let mut p = poly![1];
 
     // Multiply p by (x - root) for each root
     for &root in roots {
-        // We'll build a new polynomial with one higher degree
-        let mut new_coeffs = vec![FieldElement::zero(); p.coefficients.len() + 1];
-        let neg_root = -root;
-
-        // For each term a_i x^i in p(x), multiply by (x - root)
-        for (i, &coeff) in p.coefficients.iter().enumerate() {
-            new_coeffs[i] += coeff * neg_root;
-            new_coeffs[i + 1] += coeff;
-        }
-        p = Polynomial::new(new_coeffs);
+        // Using the macro and your operator overloading
+        p = p * poly![-root, FieldElement::one()];
     }
 
     p
@@ -31,7 +25,7 @@ pub fn gen_polynomial_from_roots<const M: u64>(roots: &[FieldElement<M>]) -> Pol
 
 /// Return the Lagrange basis polynomials [L0, L1, ..., L_{n-1}],
 /// 
-///    1) Let Z(x) = ∏ (x - x_j).
+///    1) Let Vandermonde polynomial Z(x) = ∏ (x - x_j).
 ///    2) For each i, L_i(x) = [Z(x) / (x - x_i)] / denom_i,
 ///       where denom_i = ∏_{j != i} (x_i - x_j).
 pub fn gen_lagrange_polynomials<const M: u64>(xs: &[FieldElement<M>]) -> Vec<Polynomial<M>> {
@@ -57,7 +51,10 @@ pub fn gen_lagrange_polynomials<const M: u64>(xs: &[FieldElement<M>]) -> Vec<Pol
 
         let divisor = gen_polynomial_from_roots(&[xs[i]]); // (x - x_i)
         let (mut li, rem) = Z.div_rem(&divisor);
-        assert!(rem.is_zero(), "Z(x) should be divisible by (x - x_i)");
+        if !rem.is_zero(){
+            panic!("Z(x) should be divisible by (x - x_i)");
+        }
+ 
         li.scalar_mul(denom_inv);
         lagrange_vec.push(li);
     }
@@ -73,8 +70,15 @@ pub fn interpolate_lagrange_polynomials<const M: u64>(
     xs: &[FieldElement<M>],
     ys: &[FieldElement<M>]
 ) -> Polynomial<M> {
+
+    if xs.len() != ys.len() {
+        panic!(
+            "Mismatched x and y lengths: xs.len() = {}, ys.len() = {}",
+            xs.len(),
+            ys.len()
+        );
+    }
     let n = xs.len();
-    assert_eq!(n, ys.len(), "Mismatched x and y lengths");
     if n == 0 {
         // Return zero polynomial if no points
         return Polynomial::zero();
@@ -93,3 +97,67 @@ pub fn interpolate_lagrange_polynomials<const M: u64>(
     }
     acc
 }
+
+    #[cfg(test)]
+    mod test_interpol {
+        use super::*;
+        use itertools::Itertools; // for collect_vec()
+        use rand::Rng;
+        use std::collections::HashSet;
+    
+        #[test]
+        fn test_gen_polynomial_from_roots() {
+
+        let roots = vec![
+            fe!(7, 1),
+            fe!(7, 2),
+            fe!(7, 3),
+        ];
+        let polynomial = gen_polynomial_from_roots(&roots);
+
+        field!(F7,7);
+        assert_eq!(polynomial.coefficients[0],F7::new(1));
+        assert_eq!(polynomial.coefficients[1],F7::new(4));
+        assert_eq!(polynomial.coefficients[2],F7::new(1));
+        assert_eq!(polynomial.coefficients[3],F7::new(1));
+        }
+        #[test]
+        fn test_gen_lagrange_poly() {
+            // Create the x-values using the fe! macro.
+            let xs = vec![
+                fe!(7, 2),
+                fe!(7, 3),
+                fe!(7, 5),
+            ];
+    
+
+        let lagrange_polys = gen_lagrange_polynomials(&xs);
+        assert_eq!(lagrange_polys.len(), xs.len());
+
+            for (i, &xi) in xs.iter().enumerate() {
+                for (j, &xj) in xs.iter().enumerate() {
+                    let eval = lagrange_polys[i].evaluate(xj);
+                    if i == j {
+                        // At its own node, the basis polynomial should evaluate to 1.
+                        assert_eq!(
+                            eval,
+                            FieldElement::one(),
+                            "Lagrange basis polynomial L_{} did not evaluate to 1 at its node (x = {:?})",
+                            i,
+                            xi
+                        );
+                    } else {
+                        // At other nodes, the basis polynomial should evaluate to 0.
+                        assert_eq!(
+                            eval,
+                            FieldElement::zero(),
+                            "Lagrange basis polynomial L_{} did not evaluate to 0 at x = {:?}",
+                            i,
+                            xj
+                        );
+                    }
+                }
+    }}
+
+}
+
