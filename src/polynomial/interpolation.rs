@@ -27,6 +27,8 @@ pub fn gen_polynomial_from_roots<const M: u64>(roots: &[FieldElement<M>]) -> Pol
 
     p
 }
+
+
 /// Return the Lagrange basis polynomials [L0, L1, ..., L_{n-1}],
 /// 
 ///    1) Let Z(x) = ∏ (x - x_j).

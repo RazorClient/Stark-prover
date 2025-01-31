@@ -21,6 +21,10 @@ flamegraph = "0.6.7"
 name = "field_bench"
 harness = false
 
+[[bench]]
+name = "poly_ops"
+harness = false 
+
 [profile.dev]
 incremental = true
 
