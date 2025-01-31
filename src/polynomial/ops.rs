@@ -1,4 +1,6 @@
-use std::ops::{Add, AddAssign, Sub, SubAssign, Mul, MulAssign, Div, Neg};
+use std::ops::{Add, AddAssign, Sub, SubAssign, Mul, MulAssign, Div,DivAssign,Neg,Rem,RemAssign};
+use std::ops::{Fn, FnMut, FnOnce};
+
 
 use crate::FieldElement;
 
@@ -186,20 +188,50 @@ impl<const MODULUS: u64> Polynomial<MODULUS> {
         (quot_poly, rem_poly)
         }
 
-        /// Scalar multiplication in-place
-        pub fn scalar_mul(&mut self, scalar: FieldElement<MODULUS>) {
+    /// Scalar multiplication in-place
+    pub fn scalar_mul(&mut self, scalar: FieldElement<MODULUS>) {
             for coef in self.coefficients.iter_mut() {
                 *coef *= scalar;
             }
         }
 
-        /// Scalar division in-place
-        pub fn scalar_div(&mut self, scalar: FieldElement<MODULUS>) {
+    /// Scalar division in-place
+    pub fn scalar_div(&mut self, scalar: FieldElement<MODULUS>) {
             let scalar_inv = scalar.inverse().expect("Division by zero scalar");
             for coef in self.coefficients.iter_mut() {
                 *coef *= scalar_inv;
             }
         }
+
+    impl<const MODULUS: u64> Polynomial<MODULUS> {
+    /// Compose `self` with `other`: return `self(other)`.
+    /// i.e. p(q) = sum_{i=0}^degree( coeff[i] * [q(x)]^i ).
+    pub fn compose(&self, other: &Polynomial<MODULUS>) -> Polynomial<MODULUS> {
+        if self.is_zero() {
+            return Polynomial::zero();
+        }
+
+        // We'll do Horner’s approach from highest power to lowest:
+        //   p(x) = a_n x^n + ... + a_1 x + a_0
+        //   p(q) = (((0 * q) + a_n)*q + a_{n-1})*q + ... + a_0
+        let mut result = Polynomial::zero();
+        for &coeff in self.coefficients.iter().rev() {
+            // result = result * other + coeff
+            if !result.is_zero() {
+                let mut temp = result.clone();
+                temp.mul_assign(other);
+                // add constant 'coeff'
+                temp.add_assign(&Polynomial::new(vec![coeff]));
+                result = temp;
+            } else {
+                // When result=0, result*q + coeff = [const polynomial with 'coeff']
+                result = Polynomial::new(vec![coeff]);
+            }
+        }
+        result
+    }
+}
+
 }
 
 ///trait
@@ -306,5 +338,103 @@ impl<const M: u64> Mul<Polynomial<M>> for FieldElement<M> {
     fn mul(self, mut poly: Polynomial<M>) -> Polynomial<M> {
         poly.mul_assign(self);
         poly
+    }
+}
+
+impl<const MODULUS: u64> Rem for Polynomial<MODULUS> {
+    type Output = Self;
+
+    fn rem(self, rhs: Self) -> Self::Output {
+        // Use your existing div_rem function
+        let (_, remainder) = self.div_rem(&rhs);
+        remainder
+    }
+}
+
+
+impl<const MODULUS: u64> RemAssign for Polynomial<MODULUS> {
+    fn rem_assign(&mut self, rhs: Self) {
+        let (_, remainder) = self.clone().div_rem(&rhs);
+        *self = remainder;
+    }
+}
+
+
+impl<const MODULUS: u64> Polynomial<MODULUS> {
+    /// Compose `self` with `other`: return `self(other)`.
+    /// i.e. p(q) = sum_{i=0}^degree( coeff[i] * [q(x)]^i ).
+    pub fn compose(&self, other: &Polynomial<MODULUS>) -> Polynomial<MODULUS> {
+        if self.is_zero() {
+            return Polynomial::zero();
+        }
+        //   p(x) = a_n x^n + ... + a_1 x + a_0
+        //   p(q) = (((0 * q) + a_n)*q + a_{n-1})*q + ... + a_0
+        let mut result = Polynomial::zero();
+        for &coeff in self.coefficients.iter().rev() {
+
+            if !result.is_zero() {
+                let mut temp = result.clone();
+                temp.mul_assign(other);
+                // add constant 'coeff'
+                temp.add_assign(&Polynomial::new(vec![coeff]));
+                result = temp;
+            } else {
+                result = Polynomial::new(vec![coeff]);
+            }
+        }
+        result
+    }
+}
+
+
+impl<const M: u64> FnOnce<(Polynomial<M>,)> for Polynomial<M> {
+    type Output = Polynomial<M>;
+
+    extern "rust-call" fn call_once(self, args: (Polynomial<M>,)) -> Self::Output {
+        self.compose(&args.0)
+    }
+}
+
+impl<const M: u64> FnMut<(Polynomial<M>,)> for Polynomial<M> {
+    extern "rust-call" fn call_mut(&mut self, args: (Polynomial<M>,)) -> Self::Output {
+        // FnMut means self is mutable reference
+        self.compose(&args.0)
+    }
+}
+
+impl<const M: u64> Fn<(Polynomial<M>,)> for Polynomial<M> {
+    extern "rust-call" fn call(&self, args: (Polynomial<M>,)) -> Self::Output {
+        // Fn means self is an immutable reference
+        self.compose(&args.0)
+    }
+}
+
+impl<const M: u64, T: Into<FieldElement<M>>> FnOnce<(T,)> for Polynomial<M> {
+    type Output = FieldElement<M>;
+
+    extern "rust-call" fn call_once(self, args: (T,)) -> Self::Output {
+        self.evaluate(args.0.into())
+    }
+}
+
+impl<const M: u64, T: Into<FieldElement<M>>> FnMut<(T,)> for Polynomial<M> {
+    extern "rust-call" fn call_mut(&mut self, args: (T,)) -> Self::Output {
+        self.evaluate(args.0.into())
+    }
+}
+
+impl<const M: u64, T: Into<FieldElement<M>>> Fn<(T,)> for Polynomial<M> {
+    extern "rust-call" fn call(&self, args: (T,)) -> Self::Output {
+        self.evaluate(args.0.into())
+    }
+}
+
+
+// imp iterator
+
+impl<const M: u64> FromIterator<FieldElement<M>> for Polynomial<M> {
+    fn from_iter<T: IntoIterator<Item = FieldElement<M>>>(iter: T) -> Self {
+        let coeffs: Vec<FieldElement<M>> = iter.into_iter().collect();
+        Self::new(coeffs)
     }
 }

@@ -134,6 +134,18 @@ impl<const MODULUS: u64> Neg for FieldElement<MODULUS> {
         FieldElement::new(MODULUS - self.value)
     }
 }
+
+impl<const M: u64> From<i128> for FieldElement<M> {
+    fn from(value: i128) -> Self {
+        let modulus = M as i128;
+        let mut val = value % modulus;
+        if val < 0 {
+            val += modulus; // ensure in [0, M-1]
+        }
+        FieldElement::new(val as u64)
+    }
+}
+
 #[cfg(test)]
 mod test_field_operations {
     use super::*;
