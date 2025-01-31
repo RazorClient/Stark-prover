@@ -8,6 +8,7 @@ itertools = "0.14.0"
 num-prime = "0.4.4"
 rand = { version = "0.8", features = ["std"] }
 rand_core = "0.6.4"
+rand_chacha = { version = "0.3", features = ["std"] }
 rs_merkle = "1.4.2"
 subtle = "2.6.1"
 thiserror = "2.0.11"
@@ -22,3 +23,6 @@ harness = false
 
 [profile.dev]
 incremental = true
+
+[features]
+nightly = []

@@ -30,8 +30,6 @@ The `Polynomial` module provides a robust and efficient implementation of polyno
     - [Operator Overloading](#operator-overloading)
     - [Function Traits (`Fn`, `FnMut`, `FnOnce`)](#function-traits-fn-fnmut-fnonce)
     - [Iterators](#iterators)
-9. [Error Handling](#error-handling)
-10. [Performance Considerations](#performance-considerations)
 
 ---
 

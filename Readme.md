@@ -1,2 +1,2 @@
 - inverse takes time in field ops 
-
+- use chacha for rand
