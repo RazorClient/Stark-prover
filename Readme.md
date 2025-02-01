@@ -4,4 +4,14 @@
 
 - revisit the benches for polynomial ops when free
 
-- get pack to testing langrange interpol and getting fiat shamir ready 
+- fft (ntt after fri is done)
+
+
+
+
+## Resources
+
+- https://aszepieniec.github.io/stark-anatomy/fri
+- https://blog.lambdaclass.com/how-to-code-fri-from-scratch/
+- https://blog.lambdaclass.com/diving-deep-fri/
+
