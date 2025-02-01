@@ -1,6 +1,6 @@
 use std::ops::{Add,AddAssign ,Sub,SubAssign, Mul, MulAssign, Div,DivAssign,Neg,Rem,RemAssign};
 use std::ops::{Fn, FnMut, FnOnce};
-
+use crate::polynomial::interpolation::interpolate_lagrange_polynomials;
 
 use crate::fields::FieldElement;
 
@@ -236,7 +236,9 @@ impl<const MODULUS: u64> Polynomial<MODULUS> {
         result
     }
 
-
+    pub fn interpolate(xs: &[FieldElement<MODULUS>], ys: &[FieldElement<MODULUS>]) -> Self {
+        interpolate_lagrange_polynomials(xs, ys)
+    }
 }
 
 ///trait

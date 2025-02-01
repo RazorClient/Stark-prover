@@ -104,6 +104,14 @@ pub fn interpolate_lagrange_polynomials<const M: u64>(
         use itertools::Itertools; // for collect_vec()
         use rand::Rng;
         use std::collections::HashSet;
+
+        pub fn generate_random_polynomial<const M: u64>(degree: usize) -> Polynomial<M> {
+            let mut coeffs = Vec::with_capacity(degree + 1);
+            for _ in 0..=degree {
+                coeffs.push(FieldElement::<M>::random());
+            }
+            Polynomial::new(coeffs)
+        }
     
         #[test]
         fn test_gen_polynomial_from_roots() {
@@ -121,6 +129,7 @@ pub fn interpolate_lagrange_polynomials<const M: u64>(
         assert_eq!(polynomial.coefficients[2],F7::new(1));
         assert_eq!(polynomial.coefficients[3],F7::new(1));
         }
+
         #[test]
         fn test_gen_lagrange_poly() {
             // Create the x-values using the fe! macro.
@@ -159,5 +168,87 @@ pub fn interpolate_lagrange_polynomials<const M: u64>(
                 }
     }}
 
+//    #[test]
+//     fn test_poly_interpolation() {
+//         let mut rng = rand::thread_rng();
+//         for _ in 0..10 {
+//             // Random degree up to 100
+//             let degree = rng.gen_range(0..100);
+
+//             // Use your helper function to get a random polynomial of that degree.
+//             let p = generate_random_polynomial::<7>(degree);
+
+//             // Collect at least degree+1 distinct random x-values.
+//             let mut x_values_set = HashSet::new();
+//             while x_values_set.len() < degree + 1 {
+//                 // Replace this call with the valid method in your code for random field elements:
+//                 x_values_set.insert(FieldElement::<7>::random());
+//             }
+//             let x_values: Vec<_> = x_values_set.into_iter().collect_vec();
+
+//             // Evaluate p on these x-values.
+//             let y_values: Vec<_> = x_values
+//                 .iter()
+//                 .map(|&x| p.evaluate(x))
+//                 .collect_vec();
+
+//             // Interpolate the polynomial from the points (x_values, y_values).
+//             let interpolated_p = interpolate_lagrange_polynomials(&x_values, &y_values);
+
+//             assert_eq!(
+//                 p, interpolated_p,
+//                 "Polynomial interpolation failed for a randomly generated polynomial of degree {}",
+//                 degree
+//             );
+//         }
+//     }
+
+#[test]
+fn test_gen_lagrange_poly2() {
+    let x = vec![
+        fe!(7, 2),
+        fe!(7, 3),
+        fe!(7, 5),fe!(7,6)
+    ];
+
+    let lagrange_polynomials = gen_lagrange_polynomials(&x);
+    assert_eq!(lagrange_polynomials.len(), 4);
+
+    for (i, &xi) in x.iter().enumerate() {
+        for (j, &xj) in x.iter().enumerate() {
+            let eval = lagrange_polynomials[i].evaluate(xj);
+            if i == j {
+                // Should be 1 at its own node
+                assert_eq!(eval, FieldElement::one());
+            } else {
+                // Should be 0 at others
+                assert_eq!(eval, FieldElement::zero());
+            }
+        }
+    }
+    
+}
+
+#[test]
+    fn test_interpolate_lagrange_polynomials() {
+        let x = vec![
+            fe!(7, 2),
+            fe!(7, 3),
+            fe!(7, 5)
+        ];
+
+        let y = vec![
+            fe!(7, 1),
+            fe!(7, 2),
+            fe!(7, 3)
+        ];
+        let result = interpolate_lagrange_polynomials(&x, &y);
+
+        // Expected polynomial in GF(7) has coefficients: constant term = 5,
+        // x term = 3, x^2 term = 1.
+        assert_eq!(result.coefficients[0],fe!(7, 5));
+        assert_eq!(result.coefficients[1],fe!(7, 3));
+        assert_eq!(result.coefficients[2],fe!(7, 1));
+    }
 }
 

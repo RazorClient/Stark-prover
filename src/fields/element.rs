@@ -4,7 +4,7 @@ use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssi
 
 
 /// An element of the given Field.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy,Hash)]
 pub struct FieldElement<const MODULUS: u64> {
     value: u64,
 }
