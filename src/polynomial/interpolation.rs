@@ -1,7 +1,8 @@
 use crate::fields::FieldElement;
 use crate::polynomial::Polynomial;
 use crate::{poly,fe,field};
-// add ntt and pararell version latter
+use rayon::prelude::*;
+// add ntt version latter
 
 
 
@@ -15,7 +16,6 @@ pub fn gen_polynomial_from_roots<const M: u64>(roots: &[FieldElement<M>]) -> Pol
 
     // Multiply p by (x - root) for each root
     for &root in roots {
-        // Using the macro and your operator overloading
         p = p * poly![-root, FieldElement::one()];
     }
 
@@ -62,6 +62,44 @@ pub fn gen_lagrange_polynomials<const M: u64>(xs: &[FieldElement<M>]) -> Vec<Pol
     lagrange_vec
 }
 
+pub fn gen_lagrange_polynomials_parallel<const M: u64>(roots: &[FieldElement<M>]) -> Vec<Polynomial<M>> {
+    let n = roots.len();
+    if n == 0 {
+        return vec![];
+    }
+    // 1)  Z(x) = ∏ (x - x_j).
+    let Z = gen_polynomial_from_roots(roots);
+        // Step 2: For each i, compute L_i(x) in parallel
+        (0..n)
+        .into_par_iter() 
+        .map(|i| {
+            // Compute denom_i
+            let mut denom = FieldElement::one();
+            for j in 0..n {
+                if i != j {
+                    denom *= roots[i] - roots[j];
+                }
+            }
+            let denom_inv = denom.inverse();
+
+            // Divide Z by (x - x_i)
+            let divisor = gen_polynomial_from_roots(&[roots[i]]);
+            let (mut li, rem) = Z.div_rem(&divisor);
+            if !rem.is_zero() {
+                panic!("Z(x) should be divisible by (x - x_i)");
+            }
+
+            // Multiply by denom_inv
+            li.scalar_mul(denom_inv);
+
+            li
+        })
+        .collect()
+
+
+
+}
+
 /// Interpolate polynomial f of degree < n that satisfies
 /// f(xs[i]) = ys[i] for i = 0..n-1.
 ///
@@ -89,7 +127,6 @@ pub fn interpolate_lagrange_polynomials<const M: u64>(
     // Sum up: f(x) = Σ (ys[i] * L[i](x)).
     let mut acc = Polynomial::zero();
     for i in 0..n {
-        // clone L[i], multiply by ys[i].
         let mut term = l[i].clone();
         term.scalar_mul(ys[i]);
         // add to accumulator
@@ -132,7 +169,6 @@ pub fn interpolate_lagrange_polynomials<const M: u64>(
 
         #[test]
         fn test_gen_lagrange_poly() {
-            // Create the x-values using the fe! macro.
             let xs = vec![
                 fe!(7, 2),
                 fe!(7, 3),
@@ -250,5 +286,74 @@ fn test_gen_lagrange_poly2() {
         assert_eq!(result.coefficients[1],fe!(7, 3));
         assert_eq!(result.coefficients[2],fe!(7, 1));
     }
+
+    #[test]
+    fn test_gen_lagrange_poly_parallel_small() {
+        // Some distinct x-values in Field7
+        let x = vec![
+            fe!(7, 2),
+            fe!(7, 3),
+            fe!(7, 5),
+            fe!(7, 6),
+        ];
+
+
+        let lagrange_polys = gen_lagrange_polynomials_parallel(&x);
+
+
+        assert_eq!(lagrange_polys.len(), x.len());
+
+        // Check that each L_i(x_j) == 1 if i == j, else 0
+        for (i, &xi) in x.iter().enumerate() {
+            for (j, &xj) in x.iter().enumerate() {
+                let eval = lagrange_polys[i].evaluate(xj);
+                if i == j {
+                    assert_eq!(
+                        eval,
+                        FieldElement::one(),
+                        "Basis polynomial L_{} did not evaluate to 1 at x = {:?}",
+                        i,
+                        xj
+                    );
+                } else {
+                    assert_eq!(
+                        eval,
+                        FieldElement::zero(),
+                        "Basis polynomial L_{} did not evaluate to 0 at x = {:?}",
+                        i,
+                        xj
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_gen_lagrange_poly_parallel_random() {
+
+        let x = vec![
+            fe!(7, 1),
+            fe!(7, 2),
+            fe!(7, 3),
+            fe!(7, 4),
+            fe!(7, 6),
+        ];
+
+        let lagrange_polys = gen_lagrange_polynomials_parallel(&x);
+        assert_eq!(lagrange_polys.len(), x.len());
+
+        // Same correctness check: L_i(x_j) == δ_{ij}
+        for (i, &xi) in x.iter().enumerate() {
+            for (j, &xj) in x.iter().enumerate() {
+                let eval = lagrange_polys[i].evaluate(xj);
+                if i == j {
+                    assert_eq!(eval, FieldElement::one());
+                } else {
+                    assert_eq!(eval, FieldElement::zero());
+                }
+            }
+        }
+    }
+
 }
 

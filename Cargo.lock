@@ -3789,6 +3789,7 @@ dependencies = [
  "rand",
  "rand_chacha",
  "rand_core",
+ "rayon",
  "rs_merkle",
  "sha256",
  "sha3",
