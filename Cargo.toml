@@ -36,5 +36,10 @@ harness= false
 [profile.dev]
 incremental = true
 
+[profile.release]
+lto = "fat"
+codegen-units = 1
+
+
 [features]
 nightly = []
