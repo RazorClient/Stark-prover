@@ -21,6 +21,21 @@ pub fn gen_polynomial_from_roots<const M: u64>(roots: &[FieldElement<M>]) -> Pol
 
     p
 }
+// /// nlogn but slower lmao 
+// pub fn polynomial_from_roots<const M: u64>(roots: &[FieldElement<M>]) -> Polynomial<M> {
+//     if roots.is_empty() {
+//         return Polynomial::zero();
+//     }
+//     if roots.len() == 1 {
+//         return poly![-roots[0], FieldElement::one()];
+//     }
+
+//     let mid = roots.len() / 2;
+//     let left = polynomial_from_roots(&roots[..mid]);
+//     let right = polynomial_from_roots(&roots[mid..]);
+
+//     left * right
+// }
 
 
 /// Return the Lagrange basis polynomials [L0, L1, ..., L_{n-1}],
@@ -68,6 +83,7 @@ pub fn gen_lagrange_polynomials_parallel<const M: u64>(roots: &[FieldElement<M>]
         return vec![];
     }
     // 1)  Z(x) = ∏ (x - x_j).
+    // 1)  Z(x) = ∏ (x - x_j).
     let Z = gen_polynomial_from_roots(roots);
         // Step 2: For each i, compute L_i(x) in parallel
         (0..n)
@@ -88,8 +104,6 @@ pub fn gen_lagrange_polynomials_parallel<const M: u64>(roots: &[FieldElement<M>]
             if !rem.is_zero() {
                 panic!("Z(x) should be divisible by (x - x_i)");
             }
-
-            // Multiply by denom_inv
             li.scalar_mul(denom_inv);
 
             li

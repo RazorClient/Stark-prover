@@ -1,9 +1,5 @@
 - inverse takes time in field ops 
 - use chacha for rand
-
-
-- revisit the benches for polynomial ops when free
-
 - fft (ntt after fri is done)
 
 
