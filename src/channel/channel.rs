@@ -3,7 +3,7 @@
 
 
 use crate::fields::FieldElement; 
-use alloy::{hex::{self, ToHexExt}, primitives::U256};
+use alloy::{hex::{self}, primitives::U256};
 use sha256;
 
 

@@ -29,6 +29,10 @@ harness = false
 name = "poly_ops"
 harness = false 
 
+[[bench]]
+name = "poly_lang"
+harness= false
+
 [profile.dev]
 incremental = true
 

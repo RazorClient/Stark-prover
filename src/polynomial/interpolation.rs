@@ -122,7 +122,9 @@ pub fn interpolate_lagrange_polynomials<const M: u64>(
         return Polynomial::zero();
     }
     // Compute the basis polynomials L_i(x).
-    let l = gen_lagrange_polynomials(xs);
+    // use the pararell version 
+    
+    let l = gen_lagrange_polynomials_parallel(xs);
 
     // Sum up: f(x) = Σ (ys[i] * L[i](x)).
     let mut acc = Polynomial::zero();
@@ -138,9 +140,9 @@ pub fn interpolate_lagrange_polynomials<const M: u64>(
     #[cfg(test)]
     mod test_interpol {
         use super::*;
-        use itertools::Itertools; // for collect_vec()
-        use rand::Rng;
-        use std::collections::HashSet;
+         // for collect_vec()
+        
+        
 
         pub fn generate_random_polynomial<const M: u64>(degree: usize) -> Polynomial<M> {
             let mut coeffs = Vec::with_capacity(degree + 1);
