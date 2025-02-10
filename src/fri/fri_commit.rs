@@ -2,10 +2,9 @@ use crate::fields::FieldElement;
 use crate::polynomial::Polynomial;
 use crate::{poly,fe,field};
 
-/// A small struct to hold the entire FRI proof:
 /// - Each layer's evaluations
 /// - Each layer's Merkle tree
-/// - The final polynomial (often just degree 0 or 1)
+/// - The final polynomial 
 #[derive(Clone)]
 pub struct FRIProof {
     pub fri_layers: Vec<Vec<FieldElement>>, 
@@ -13,7 +12,7 @@ pub struct FRIProof {
     pub final_poly: Polynomial, // The final constant or low-degree poly
 }
 
-/// Example function to produce the next domain by squaring.
+///  produce the next domain by squaring.
 /// For a domain [d_0, d_1, ..., d_{n-1}], the “folded” domain
 /// is [d_0^2, d_1^2, ..., d_{(n/2)-1}^2].
 fn next_fri_domain(domain: &[FieldElement]) -> Vec<FieldElement> {
@@ -24,14 +23,12 @@ fn next_fri_domain(domain: &[FieldElement]) -> Vec<FieldElement> {
         .collect()
 }
 
-/// Example “folding” step:
+
 /// If your FRI definition is the standard
 /// \[p_{i+1}(x) = \frac{p_i(x) + p_i(-x)}{2} + \beta * \frac{p_i(x) - p_i(-x)}{2x}\],
-/// you can code that. Below is a simpler variant that matches your existing snippet:
 ///
 ///     next_poly(x) = even_part(x) + beta * odd_part(x)
-///
-/// (Be sure you’re consistent with your domain usage!)
+
 fn next_fri_polynomial(poly: &Polynomial, beta: FieldElement) -> Polynomial {
     let odd_coeffs: Vec<FieldElement> = poly
         .coefficients
@@ -68,8 +65,8 @@ fn next_fri_layer(
 }
 
 /// The main “FRI commit” phase:
-/// 1. Evaluate your polynomial on the domain, build Merkle tree, send root.
-/// 2. Repeatedly fold with random betas from the `Channel`.
+/// 1. Evaluate  polynomial on the domain, build Merkle tree, send root.
+/// 2. Repeatedly fold with random betas
 /// 3. Send the final constant (or low-degree polynomial) to the verifier.
 /// 4. Return all data as `FRIProof`.
 pub fn fri_commit(
@@ -77,11 +74,11 @@ pub fn fri_commit(
     mut domain: Vec<FieldElement>,
     channel: &mut Channel,
 ) -> FRIProof {
-    // Evaluate polynomial on domain
+
     let mut evals = domain.iter().map(|&x| poly.evaluate(x)).collect::<Vec<_>>();
     let mut merkle = MerkleTree::new(&evals);
 
-    // We'll store each layer's evals + Merkle tree
+    //store each layer's evals + Merkle tree
     let mut fri_layers = vec![evals];
     let mut fri_merkles = vec![merkle];
 
@@ -102,15 +99,13 @@ pub fn fri_commit(
         // Send the new Merkle root
         channel.send(new_merkle.root().to_vec());
 
-        // Update for next iteration
         fri_layers.push(new_evals);
         fri_merkles.push(new_merkle);
         poly = new_poly;
         domain = new_domain;
     }
 
-    // The polynomial is now degree <= 0, so basically a constant polynomial
-    // Send that constant to the verifier
+    // Send that constant final to the verifier
     let final_value = if poly.is_zero() {
         FieldElement::zero()
     } else {
@@ -139,24 +134,18 @@ pub fn fri_commit(
 */
 
 /// Decommit all FRI layers for a single query index.
-/// This is identical to your snippet, just adapted to a single function.
 pub fn decommit_fri_layers(
     index: usize,
     fri_layers: &[Vec<FieldElement>],
     fri_merkles: &[MerkleTree],
     channel: &mut Channel,
 ) {
-    // We typically skip the very last layer if it's a single constant,
-    // because there's no sibling. If you prefer to send it explicitly,
-    // you can do so.
+
     for (layer_evals, merkle_tree) in fri_layers.iter().zip(fri_merkles) {
         let length = layer_evals.len();
         // If length == 1, it’s the final constant—just send that or skip it
         if length == 1 {
-            // Usually we've *already* sent it as final_value,
-            // but you could also do:
-            // channel.send(layer_evals[0].to_bytes());
-            break;
+            channel.send(layer_evals[0].to_bytes());
         }
 
         // The actual index in this layer:
@@ -175,9 +164,7 @@ pub fn decommit_fri_layers(
     }
 }
 
-/// Example for multiple queries:
-/// The verifier picks Q random indices. For each index, we call
-/// `decommit_fri_layers`.
+
 pub fn decommit_fri(
     num_queries: usize,
     max_index: usize,
