@@ -1,8 +1,7 @@
 - inverse takes time in field ops 
-- use chacha for rand
 - fft (ntt after fri is done)
 
-
+-> FRI started (real battle) design how??
 
 
 ## Resources
