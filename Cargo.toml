@@ -16,6 +16,11 @@ sha3 = "0.10.8"
 alloy = "0.11.0"
 sha256 = "1.5.0"
 rayon = "1.10.0"
+tracing = "0.1"
+tracing-subscriber = {version="0.3" ,features = ["env-filter", "fmt", "chrono"]}
+chrono = "0.4.39"
+tracing-appender = "0.2.3"
+tracing-core = "0.1"
 
 [dev-dependencies]
 criterion = "0.5.1"
