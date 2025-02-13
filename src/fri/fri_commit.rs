@@ -173,7 +173,7 @@ pub fn decommit_fri(
     channel: &mut Channel,
 ) {
     for _ in 0..num_queries {
-        let idx = channel.receive_random_int(0, max_index, /* show_in_proof= */ true);
+        let idx = channel.receive_random_int(0, max_index, true);
         decommit_fri_layers(idx, fri_layers, fri_merkles, channel);
     }
 }
